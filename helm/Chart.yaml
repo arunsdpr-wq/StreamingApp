@@ -1,0 +1,14 @@
+apiVersion: v2
+name: streamingapp
+description: A Helm chart for StreamingApp microservices on EKS
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - mern
+  - streaming
+  - microservices
+maintainers:
+  - name: DevOps Team
+    email: devops@streamingapp.com
+home: https://github.com/UnpredictablePrashant/StreamingApp

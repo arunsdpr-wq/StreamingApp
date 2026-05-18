@@ -1,0 +1,194 @@
+# Default values for StreamingApp Helm Chart
+
+# Global settings
+global:
+  environment: dev
+  imageRegistry: ""
+  imagePullSecrets:
+    - name: ecr-registry
+
+# MongoDB Configuration
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    rootPassword: changeme
+  persistence:
+    enabled: true
+    size: 20Gi
+  service:
+    port: 27017
+
+# Auth Service
+auth:
+  name: auth
+  replicaCount: 1
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/auth-service
+    tag: latest
+  port: 3001
+  service:
+    type: ClusterIP
+    port: 3001
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  env:
+    PORT: "3001"
+    JWT_SECRET: "changeme"
+
+# Streaming Service
+streaming:
+  name: streaming
+  replicaCount: 1
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-service
+    tag: latest
+  port: 3002
+  service:
+    type: ClusterIP
+    port: 3002
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  env:
+    PORT: "3002"
+    JWT_SECRET: "changeme"
+
+# Admin Service
+admin:
+  name: admin
+  replicaCount: 1
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/admin-service
+    tag: latest
+  port: 3003
+  service:
+    type: ClusterIP
+    port: 3003
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  env:
+    PORT: "3003"
+    JWT_SECRET: "changeme"
+
+# Chat Service
+chat:
+  name: chat
+  replicaCount: 1
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/chat-service
+    tag: latest
+  port: 3004
+  service:
+    type: ClusterIP
+    port: 3004
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  env:
+    PORT: "3004"
+    JWT_SECRET: "changeme"
+
+# Frontend
+frontend:
+  name: frontend
+  replicaCount: 1
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend
+    tag: latest
+  port: 80
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 80
+  ingress:
+    enabled: true
+    className: nginx
+    annotations: {}
+    hosts:
+      - host: streamingapp.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: api.streamingapp.local
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: auth
+          port: 3001
+        - path: /streaming
+          pathType: Prefix
+          service: streaming
+          port: 3002
+        - path: /admin
+          pathType: Prefix
+          service: admin
+          port: 3003
+        - path: /chat
+          pathType: Prefix
+          service: chat
+          port: 3004
+  tls: []
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+
+# Monitoring and Logging
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  cloudwatch:
+    enabled: true
+    logGroup: /aws/eks/streamingapp

@@ -50,102 +50,176 @@ git merge upstream/main
 git push origin main
 STEP 2 — Analyze MERN Structure
 
-Typical structure:
+StreamingApp Microservices Architecture
 
-StreamingApp/
- ├── frontend/
- ├── backend/
- ├── package.json
-STEP 3 — Dockerize Frontend & Backend
-Backend Dockerfile
+Your project is a microservices-based MERN application.
 
-Create:
+Based on the structure, the backend folder contains multiple independent services, and each service has its own Dockerfile.
 
-backend/Dockerfile
-FROM node:18
+That means:
 
-WORKDIR /app
+You should NOT build one backend image
+You MUST build separate Docker images for:
+adminService
+authService
+chatService
+streamingService
+frontend
+Actual Project Architecture
+STREAMINGAPP/
+│
+├── backend/
+│   ├── adminService/
+│   │    └── Dockerfile
+│   │
+│   ├── authService/
+│   │    └── Dockerfile
+│   │
+│   ├── chatService/
+│   │    └── Dockerfile
+│   │
+│   └── streamingService/
+│        └── Dockerfile
+│
+├── frontend/
+│    └── Dockerfile
+│
+├── docker-compose.yml
+└── README.md
+Final DevOps Architecture
+Developer
+   ↓
+GitHub Repository
+   ↓
+Jenkins CI/CD Pipeline
+   ↓
+Docker Build Per Microservice
+   ↓
+Amazon ECR Repositories
+   ↓
+Amazon EKS Cluster
+   ↓
+Helm Deployment
+   ↓
+Kubernetes Pods & Services
+   ↓
+CloudWatch Monitoring
+   ↓
+SNS Notifications
+STEP 1 — Fork Repository
 
-COPY package*.json ./
+Open:
 
-RUN npm install
+StreamingApp Repository
 
-COPY . .
+Fork into your GitHub account.
 
-EXPOSE 5000
+STEP 2 — Clone Repository
+git clone https://github.com/<your-username>/StreamingApp.git
 
-CMD ["npm", "start"]
-Frontend Dockerfile
+cd StreamingApp
+STEP 3 — Verify Folder Structure
 
-Create:
+Run:
 
-frontend/Dockerfile
-FROM node:18 as build
+tree /F
 
-WORKDIR /app
+Expected:
 
-COPY package*.json ./
+backend/
+frontend/
+docker-compose.yml
+STEP 4 — Understand Microservices
+Services
+Service	Purpose
+adminService	Admin APIs
+authService	Authentication APIs
+chatService	Chat & messaging
+streamingService	Streaming APIs
+frontend	React frontend
 
-RUN npm install
+Each service:
 
-COPY . .
+Has its own Dockerfile
+Runs independently
+Deploys independently
+Scales independently
+STEP 5 — Build Docker Images
 
-RUN npm run build
+Go to project root:
 
-FROM nginx:latest
+cd StreamingApp
+Build adminService
+docker build -t admin-service ./backend/adminService
+Build authService
+docker build -t auth-service ./backend/authService
+Build chatService
+docker build -t chat-service ./backend/chatService
+Build streamingService
+docker build -t streaming-service ./backend/streamingService
+Build Frontend
+docker build -t streaming-frontend ./frontend
+STEP 6 — Validate Images
+docker images
 
-COPY --from=build /app/build /usr/share/nginx/html
+Expected:
 
-EXPOSE 80
+admin-service
+auth-service
+chat-service
+streaming-service
+streaming-frontend
+STEP 7 — Test Application Locally
 
-CMD ["nginx", "-g", "daemon off;"]
-STEP 4 — Test Docker Locally
-Backend
-cd backend
+Your repo already includes:
 
-docker build -t streaming-backend .
+docker-compose.yml
 
-docker run -p 5000:5000 streaming-backend
-Frontend
-cd frontend
+Run:
 
-docker build -t streaming-frontend .
+docker compose up --build
 
-docker run -p 80:80 streaming-frontend
-STEP 5 — AWS Setup
-Install AWS CLI
-Windows
+Verify:
+
+Frontend accessible
+APIs responding
+Services communicating
+
+Stop:
+
+docker compose down
+STEP 8 — Install AWS CLI
 
 AWS CLI Installer
 
 Verify:
 
 aws --version
-Configure AWS CLI
+STEP 9 — Configure AWS CLI
 aws configure
 
-Enter:
+Provide:
 
 Access Key
 Secret Key
 Region
-Output format
 
 Example:
-Region: ap-south-1
-Output: json
 
-STEP 6 — Create Amazon ECR Repositories
-Backend Repository:
-aws ecr create-repository --repository-name streaming-backend
-C:\Users\arunkumar\Documents\Assignments>aws ecr create-repository --repository-name streaming-backend
+ap-south-1
+STEP 10 — Create Amazon ECR Repositories
+
+Create separate repositories for every service.
+
+adminService Repository:
+aws ecr create-repository --repository-name admin-service
 {
     "repository": {
-        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/streaming-backend",
+        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/admin-service",
         "registryId": "130961287799",
-        "repositoryName": "streaming-backend",
-        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-backend",
-        "createdAt": "2026-05-17T17:43:53.829000+05:30",
+        "repositoryName": "admin-service",
+        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/admin-service",
+        "createdAt": "2026-05-18T00:45:20.687000+05:30",
         "imageTagMutability": "MUTABLE",
         "imageScanningConfiguration": {
             "scanOnPush": false
@@ -155,72 +229,104 @@ C:\Users\arunkumar\Documents\Assignments>aws ecr create-repository --repository-
         }
     }
 }
-
+authService Repository:
+aws ecr create-repository --repository-name auth-service
+{
+    "repository": {
+        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/auth-service",
+        "registryId": "130961287799",
+        "repositoryName": "auth-service",
+        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/auth-service",
+        "createdAt": "2026-05-18T00:46:20.655000+05:30",
+        "imageTagMutability": "MUTABLE",
+        "imageScanningConfiguration": {
+            "scanOnPush": false
+        },
+        "encryptionConfiguration": {
+            "encryptionType": "AES256"
+        }
+    }
+}
+chatService Repository:
+aws ecr create-repository --repository-name chat-service
+{
+    "repository": {
+        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/chat-service",
+        "registryId": "130961287799",
+        "repositoryName": "chat-service",
+        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/chat-service",
+        "createdAt": "2026-05-18T00:46:46.036000+05:30",
+        "imageTagMutability": "MUTABLE",
+        "imageScanningConfiguration": {
+            "scanOnPush": false
+        },
+        "encryptionConfiguration": {
+            "encryptionType": "AES256"
+        }
+    }
+}
+streamingService Repository:
+aws ecr create-repository --repository-name streaming-service
+{
+    "repository": {
+        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/streaming-service",
+        "registryId": "130961287799",
+        "repositoryName": "streaming-service",
+        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-service",
+        "createdAt": "2026-05-18T00:47:11.456000+05:30",
+        "imageTagMutability": "MUTABLE",
+        "imageScanningConfiguration": {
+            "scanOnPush": false
+        },
+        "encryptionConfiguration": {
+            "encryptionType": "AES256"
+        }
+    }
+}
 Frontend Repository:
 aws ecr create-repository --repository-name streaming-frontend
-C:\Users\arunkumar\Documents\Assignments>aws ecr create-repository --repository-name streaming-frontend
-{
-    "repository": {
-        "repositoryArn": "arn:aws:ecr:ap-south-1:130961287799:repository/streaming-frontend",
-        "registryId": "130961287799",
-        "repositoryName": "streaming-frontend",
-        "repositoryUri": "130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend",
-        "createdAt": "2026-05-17T17:45:08.915000+05:30",
-        "imageTagMutability": "MUTABLE",
-        "imageScanningConfiguration": {
-            "scanOnPush": false
-        },
-        "encryptionConfiguration": {
-            "encryptionType": "AES256"
-        }
-    }
-}
 
-STEP 7 — Login to ECR
-'''aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com'''
+STEP 11 — Login to Amazon ECR
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 130961287799.dkr.ecr.ap-south-1.amazonaws.com
 
-STEP 8 — Build & Push Images
-Backend
-docker build -t streaming-backend ./backend
-
-Tag:
-
-docker tag streaming-backend:latest \
-#<ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/#streaming-backend:latest
-
-docker tag streaming-backend:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-backend:latest
-
-Push:
-
-docker push \
-<ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/streaming-backend:latest
+STEP 12 — Tag Docker Images
+adminService
+docker tag admin-service:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/admin-service:latest
+authService
+docker tag auth-service:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/auth-service:latest
+chatService
+docker tag chat-service:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/chat-service:latest
+streamingService
+docker tag streaming-service:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-service:latest
 Frontend
-docker build -t streaming-frontend ./frontend
+docker tag streaming-frontend:latest 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend:latest
 
-Tag:
-
-docker tag streaming-frontend:latest \
-<ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend:latest
-
-Push:
-
-docker push \
-<ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend:latest
-STEP 9 — Launch Jenkins EC2 Instance
+STEP 13 — Push Images to ECR
+adminService
+docker push 130961287799.dkr.ecr.ap-south-1.amazonaws.com/admin-service:latest
+authService
+docker push 130961287799.dkr.ecr.ap-south-1.amazonaws.com/auth-service:latest
+chatService
+docker push 130961287799.dkr.ecr.ap-south-1.amazonaws.com/chat-service:latest
+streamingService
+docker push 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-service:latest
+Frontend
+docker push 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend:latest
+------------------------completed on 17 May 26------------------
+STEP 14 — Setup Jenkins EC2
 
 Create EC2:
 
 Ubuntu 22.04
 t2.medium
-30GB storage
 Open ports:
 22
 8080
-STEP 10 — Install Jenkins
-Update Server
-sudo apt update
+
+STEP 15 — Install Jenkins
 Install Java
+sudo apt update
+
 sudo apt install openjdk-17-jdk -y
 Install Jenkins
 curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
@@ -229,25 +335,13 @@ echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
 https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
 /etc/apt/sources.list.d/jenkins.list > /dev/null
 sudo apt update
+
 sudo apt install jenkins -y
-Start Jenkins
-sudo systemctl enable jenkins
-sudo systemctl start jenkins
-Access Jenkins
-http://<EC2-PUBLIC-IP>:8080
-Unlock Jenkins
-sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 
-Install:
-
-Suggested Plugins
-
-Create admin user.
-
-STEP 11 — Install Docker on Jenkins Server
+STEP 16 — Install Docker on Jenkins Server
 sudo apt install docker.io -y
 
-Add Jenkins user:
+Add Jenkins to Docker group:
 
 sudo usermod -aG docker jenkins
 
@@ -255,10 +349,7 @@ Restart:
 
 sudo systemctl restart jenkins
 sudo systemctl restart docker
-STEP 12 — Install Required Jenkins Plugins
-
-Go:
-Manage Jenkins → Plugins
+STEP 17 — Jenkins Plugins
 
 Install:
 
@@ -267,33 +358,36 @@ GitHub Integration
 Pipeline
 Kubernetes
 AWS Credentials
-Blue Ocean
-STEP 13 — Configure Jenkins Credentials
+STEP 18 — Configure Jenkins Credentials
 
 Add:
 
-AWS Access Key
-AWS Secret Key
-GitHub Token (optional)
+AWS Credentials
+GitHub Credentials
 
-Path:
-Manage Jenkins → Credentials
-
-STEP 14 — Create Jenkins Pipeline
+STEP 19 — Create Jenkinsfile
 
 Create:
 
 Jenkinsfile
-Sample Jenkinsfile
+Complete Jenkinsfile for Microservices
 pipeline {
     agent any
 
     environment {
+
         AWS_REGION = 'ap-south-1'
         ACCOUNT_ID = 'YOUR_ACCOUNT_ID'
 
+        ADMIN_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/admin-service"
+
+        AUTH_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/auth-service"
+
+        CHAT_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/chat-service"
+
+        STREAM_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/streaming-service"
+
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/streaming-frontend"
-        BACKEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/streaming-backend"
     }
 
     stages {
@@ -304,20 +398,24 @@ pipeline {
             }
         }
 
-        stage('Build Backend') {
+        stage('Build Docker Images') {
             steps {
-                sh 'docker build -t streaming-backend ./backend'
-            }
-        }
 
-        stage('Build Frontend') {
-            steps {
+                sh 'docker build -t admin-service ./backend/adminService'
+
+                sh 'docker build -t auth-service ./backend/authService'
+
+                sh 'docker build -t chat-service ./backend/chatService'
+
+                sh 'docker build -t streaming-service ./backend/streamingService'
+
                 sh 'docker build -t streaming-frontend ./frontend'
             }
         }
 
         stage('Login to ECR') {
             steps {
+
                 sh '''
                 aws ecr get-login-password --region $AWS_REGION | \
                 docker login --username AWS --password-stdin \
@@ -326,17 +424,29 @@ pipeline {
             }
         }
 
-        stage('Push Backend') {
+        stage('Push Images') {
             steps {
-                sh '''
-                docker tag streaming-backend:latest $BACKEND_REPO:latest
-                docker push $BACKEND_REPO:latest
-                '''
-            }
-        }
 
-        stage('Push Frontend') {
-            steps {
+                sh '''
+                docker tag admin-service:latest $ADMIN_REPO:latest
+                docker push $ADMIN_REPO:latest
+                '''
+
+                sh '''
+                docker tag auth-service:latest $AUTH_REPO:latest
+                docker push $AUTH_REPO:latest
+                '''
+
+                sh '''
+                docker tag chat-service:latest $CHAT_REPO:latest
+                docker push $CHAT_REPO:latest
+                '''
+
+                sh '''
+                docker tag streaming-service:latest $STREAM_REPO:latest
+                docker push $STREAM_REPO:latest
+                '''
+
                 sh '''
                 docker tag streaming-frontend:latest $FRONTEND_REPO:latest
                 docker push $FRONTEND_REPO:latest
@@ -345,215 +455,108 @@ pipeline {
         }
     }
 }
-STEP 15 — Configure GitHub Webhook
+STEP 20 — Create EKS Cluster
+eksctl create cluster --name streaming-cluster --region ap-south-1 --nodegroup-name workers --node-type t3.medium --nodes 2
 
-GitHub Repo → Settings → Webhooks
+STEP 21 — Verify Cluster
 
-Add:
-
-http://<JENKINS-IP>:8080/github-webhook/
-
-Content type:
-
-application/json
-
-Events:
-
-Just push event
-STEP 16 — Install eksctl & kubectl
-Install kubectl
-
-kubectl Installation Guide
-
-Install eksctl
-
-eksctl Official Guide
-
-STEP 17 — Create EKS Cluster
-eksctl create cluster \
---name streaming-cluster \
---region ap-south-1 \
---nodegroup-name workers \
---node-type t3.medium \
---nodes 2
-
-This takes ~15–20 mins.
-
-STEP 18 — Verify Cluster
 kubectl get nodes
-STEP 19 — Install Helm
+
+STEP 22 — Install Helm
 
 Helm Official Website
 
-Install:
-
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-STEP 20 — Create Helm Chart
+STEP 23 — Create Helm Chart
 helm create streaming-chart
 
-Structure:
+STEP 24 — Configure values.yaml
+adminService:
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/admin-service
+    tag: latest
 
-streaming-chart/
- ├── templates/
- ├── values.yaml
- ├── Chart.yaml
-STEP 21 — Configure values.yaml
+authService:
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/auth-service
+    tag: latest
+
+chatService:
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/chat-service
+    tag: latest
+
+streamingService:
+  image:
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-service
+    tag: latest
+
 frontend:
   image:
-    repository: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend
+    repository: 130961287799.dkr.ecr.ap-south-1.amazonaws.com/streaming-frontend
     tag: latest
 
-backend:
-  image:
-    repository: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/streaming-backend
-    tag: latest
-STEP 22 — Deploy Using Helm
+STEP 25 — Deploy to Kubernetes
 helm install streaming-app ./streaming-chart
 
-Verify:
-
+STEP 26 — Verify Deployment
 kubectl get pods
+
 kubectl get svc
-STEP 23 — Expose Application
 
-Use:
+kubectl get deployments
+STEP 27 — Enable Auto Scaling
 
-LoadBalancer Service
+Each microservice can scale independently.
 
 Example:
 
-type: LoadBalancer
-
-Apply:
-
-kubectl apply -f service.yaml
-STEP 24 — Enable Auto Scaling
-Horizontal Pod Autoscaler
-kubectl autoscale deployment backend \
+kubectl autoscale deployment auth-service \
 --cpu-percent=70 \
 --min=2 \
 --max=5
-STEP 25 — Monitoring with CloudWatch
-Install CloudWatch Agent
-helm repo add aws-observability https://aws.github.io/eks-charts
-helm install cloudwatch-agent aws-observability/aws-cloudwatch-metrics
-STEP 26 — Logging with CloudWatch Logs
 
-Install Fluent Bit:
+STEP 28 — Monitoring
 
-kubectl apply -f \
-https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/fluent-bit.yaml
-STEP 27 — SNS Notifications (Bonus)
-Create SNS Topic
+Install:
+
+CloudWatch Agent
+Fluent Bit
+
+Monitor:
+
+Pods
+CPU
+Memory
+Logs
+STEP 29 — SNS Notifications
+
+Create Topic:
+
 aws sns create-topic \
 --name deployment-alerts
-Subscribe Email
+
+Subscribe Email:
+
 aws sns subscribe \
 --topic-arn <TOPIC_ARN> \
 --protocol email \
 --notification-endpoint yourmail@gmail.com
-STEP 28 — Integrate SNS with Jenkins
+STEP 30 — Final Validation
 
-Add post-build step:
+Verify:
 
-post {
-    success {
-        sh '''
-        aws sns publish \
-        --topic-arn <TOPIC_ARN> \
-        --message "Deployment Successful"
-        '''
-    }
-
-    failure {
-        sh '''
-        aws sns publish \
-        --topic-arn <TOPIC_ARN> \
-        --message "Deployment Failed"
-        '''
-    }
-}
-STEP 29 — Final Validation Checklist
-Verify
-Frontend
-Accessible via LoadBalancer URL
-Backend
-APIs working
-Docker
-Images visible in ECR
-Jenkins
-Auto-trigger on Git push
-Kubernetes
+Frontend accessible
+All APIs working
+Jenkins builds successful
 Pods healthy
-
-Check:
-
-kubectl get pods
-kubectl get svc
-kubectl get deployments
-STEP 30 — Documentation Structure
-
-Create:
-
+Logs visible in CloudWatch
+Final Deliverables
 README.md
-architecture-diagram.png
-jenkins/
+Jenkinsfile
+docker-compose.yml
 helm/
 k8s/
 screenshots/
-Recommended README Sections
-Project Overview
-Architecture Diagram
-Tools Used
-CI/CD Pipeline
-EKS Deployment
-Helm Deployment
-Monitoring
-Scaling
-SNS Notifications
-Screenshots
-Challenges Faced
-Future Improvements
-Suggested Architecture Diagram Components
-
-Use:
-
-GitHub
-Jenkins
-Docker
-Amazon ECR
-Amazon EKS
-CloudWatch
-SNS
-Users
-
-You can create diagrams using:
-
-Draw.io
-
-Final Submission
-
-Submit:
-
-GitHub repository link
-README.md
-Screenshots
-Jenkinsfile
-Helm charts
-Kubernetes YAMLs
-
-Example:
-
-https://github.com/<your-username>/StreamingApp
-Extra Pro Tips
-Use Separate Namespaces
-kubectl create namespace streaming
-Use Secrets for Sensitive Data
-kubectl create secret generic app-secret \
---from-literal=MONGO_URI=<your-uri>
-Enable Rolling Updates
-
-Deployment YAML:
 
 strategy:
   type: RollingUpdate

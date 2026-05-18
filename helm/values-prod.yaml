@@ -1,0 +1,101 @@
+# Production environment values
+
+global:
+  environment: prod
+
+mongodb:
+  auth:
+    enabled: true
+  persistence:
+    size: 100Gi
+    storageClass: gp2
+
+auth:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+streaming:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "400m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+admin:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+chat:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+frontend:
+  replicaCount: 3
+  service:
+    type: LoadBalancer
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: streamingapp.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: streamingapp-tls
+      hosts:
+        - streamingapp.com
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  cloudwatch:
+    enabled: true
+
+# PVC configuration for persistent storage
+persistence:
+  enabled: true
+  storageClass: gp2

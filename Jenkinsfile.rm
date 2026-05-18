@@ -1,0 +1,337 @@
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 1, unit: 'HOURS')
+        timestamps()
+    }
+
+    parameters {
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'prod'], description: 'Target environment')
+        booleanParam(name: 'DEPLOY_TO_EKS', defaultValue: false, description: 'Deploy to EKS cluster after build')
+    }
+
+    environment {
+        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = credentials('AWS_ACCOUNT_ID')
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        
+        // Service image names
+        AUTH_SERVICE_IMAGE = "${ECR_REGISTRY}/streamingapp-auth"
+        STREAMING_SERVICE_IMAGE = "${ECR_REGISTRY}/streamingapp-streaming"
+        ADMIN_SERVICE_IMAGE = "${ECR_REGISTRY}/streamingapp-admin"
+        CHAT_SERVICE_IMAGE = "${ECR_REGISTRY}/streamingapp-chat"
+        FRONTEND_IMAGE = "${ECR_REGISTRY}/streamingapp-frontend"
+        
+        // Build tag (commit hash for uniqueness)
+        BUILD_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(8)}"
+        IMAGE_TAG = "${params.ENVIRONMENT}-${BUILD_TAG}"
+        
+        // EKS Configuration
+        EKS_CLUSTER_NAME = "streamingapp-${params.ENVIRONMENT}"
+        KUBE_NAMESPACE = "${params.ENVIRONMENT}"
+        HELM_CHART_PATH = "./helm/streamingapp"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    echo "Checked out branch: ${GIT_BRANCH}"
+                    echo "Commit: ${GIT_COMMIT}"
+                }
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                script {
+                    echo "=== Build Setup ==="
+                    echo "Environment: ${params.ENVIRONMENT}"
+                    echo "Image Tag: ${IMAGE_TAG}"
+                    echo "ECR Registry: ${ECR_REGISTRY}"
+                    
+                    // Login to ECR
+                    sh '''
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    '''
+                }
+            }
+        }
+
+        stage('Build & Push Services') {
+            parallel {
+                stage('Auth Service') {
+                    steps {
+                        script {
+                            echo "Building Auth Service..."
+                            sh '''
+                                docker build \
+                                    -t ${AUTH_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                    -t ${AUTH_SERVICE_IMAGE}:latest \
+                                    -f backend/authService/Dockerfile \
+                                    ./backend/authService
+                                
+                                docker push ${AUTH_SERVICE_IMAGE}:${IMAGE_TAG}
+                                docker push ${AUTH_SERVICE_IMAGE}:latest
+                            '''
+                        }
+                    }
+                }
+
+                stage('Streaming Service') {
+                    steps {
+                        script {
+                            echo "Building Streaming Service..."
+                            sh '''
+                                docker build \
+                                    -t ${STREAMING_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                    -t ${STREAMING_SERVICE_IMAGE}:latest \
+                                    -f backend/streamingService/Dockerfile \
+                                    ./backend/streamingService
+                                
+                                docker push ${STREAMING_SERVICE_IMAGE}:${IMAGE_TAG}
+                                docker push ${STREAMING_SERVICE_IMAGE}:latest
+                            '''
+                        }
+                    }
+                }
+
+                stage('Admin Service') {
+                    steps {
+                        script {
+                            echo "Building Admin Service..."
+                            sh '''
+                                docker build \
+                                    -t ${ADMIN_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                    -t ${ADMIN_SERVICE_IMAGE}:latest \
+                                    -f backend/adminService/Dockerfile \
+                                    ./backend/adminService
+                                
+                                docker push ${ADMIN_SERVICE_IMAGE}:${IMAGE_TAG}
+                                docker push ${ADMIN_SERVICE_IMAGE}:latest
+                            '''
+                        }
+                    }
+                }
+
+                stage('Chat Service') {
+                    steps {
+                        script {
+                            echo "Building Chat Service..."
+                            sh '''
+                                docker build \
+                                    -t ${CHAT_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                    -t ${CHAT_SERVICE_IMAGE}:latest \
+                                    -f backend/chatService/Dockerfile \
+                                    ./backend/chatService
+                                
+                                docker push ${CHAT_SERVICE_IMAGE}:${IMAGE_TAG}
+                                docker push ${CHAT_SERVICE_IMAGE}:latest
+                            '''
+                        }
+                    }
+                }
+
+                stage('Frontend') {
+                    steps {
+                        script {
+                            echo "Building Frontend..."
+                            sh '''
+                                docker build \
+                                    -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                                    -t ${FRONTEND_IMAGE}:latest \
+                                    --build-arg REACT_APP_AUTH_API_URL=${REACT_APP_AUTH_API_URL} \
+                                    --build-arg REACT_APP_STREAMING_API_URL=${REACT_APP_STREAMING_API_URL} \
+                                    --build-arg REACT_APP_STREAMING_PUBLIC_URL=${REACT_APP_STREAMING_PUBLIC_URL} \
+                                    --build-arg REACT_APP_ADMIN_API_URL=${REACT_APP_ADMIN_API_URL} \
+                                    --build-arg REACT_APP_CHAT_API_URL=${REACT_APP_CHAT_API_URL} \
+                                    --build-arg REACT_APP_CHAT_SOCKET_URL=${REACT_APP_CHAT_SOCKET_URL} \
+                                    -f frontend/Dockerfile \
+                                    ./frontend
+                                
+                                docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                                docker push ${FRONTEND_IMAGE}:latest
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            when {
+                expression {
+                    return params.ENVIRONMENT != 'prod'
+                }
+            }
+            steps {
+                script {
+                    echo "=== Running Tests ==="
+                    sh '''
+                        echo "Backend Service Tests"
+                        for service in authService streamingService adminService chatService; do
+                            if [ -f "backend/${service}/package.json" ]; then
+                                echo "Testing ${service}..."
+                                cd backend/${service}
+                                npm install
+                                npm test || true
+                                cd ../../..
+                            fi
+                        done
+                        
+                        echo "Frontend Tests"
+                        if [ -f "frontend/package.json" ]; then
+                            cd frontend
+                            npm install
+                            npm test -- --watchAll=false || true
+                            cd ..
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            when {
+                expression {
+                    return params.ENVIRONMENT == 'prod'
+                }
+            }
+            steps {
+                script {
+                    echo "=== Security Scanning Images ==="
+                    sh '''
+                        # Optional: Install and run Trivy for image scanning
+                        # trivy image ${AUTH_SERVICE_IMAGE}:${IMAGE_TAG}
+                        # trivy image ${STREAMING_SERVICE_IMAGE}:${IMAGE_TAG}
+                        # trivy image ${ADMIN_SERVICE_IMAGE}:${IMAGE_TAG}
+                        # trivy image ${CHAT_SERVICE_IMAGE}:${IMAGE_TAG}
+                        # trivy image ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        
+                        echo "Skipping security scan (uncomment trivy commands to enable)"
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to EKS') {
+            when {
+                expression {
+                    return params.DEPLOY_TO_EKS == true
+                }
+            }
+            steps {
+                script {
+                    echo "=== Deploying to EKS ==="
+                    sh '''
+                        # Configure kubectl
+                        aws eks update-kubeconfig \
+                            --name ${EKS_CLUSTER_NAME} \
+                            --region ${AWS_REGION}
+                        
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace ${KUBE_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Create image pull secrets for ECR
+                        kubectl create secret docker-registry ecr-registry \
+                            --docker-server=${ECR_REGISTRY} \
+                            --docker-username=AWS \
+                            --docker-password=$(aws ecr get-login-password --region ${AWS_REGION}) \
+                            -n ${KUBE_NAMESPACE} \
+                            --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Deploy using Helm (if chart exists)
+                        if [ -d "${HELM_CHART_PATH}" ]; then
+                            helm upgrade --install streamingapp ${HELM_CHART_PATH} \
+                                --namespace ${KUBE_NAMESPACE} \
+                                --values ${HELM_CHART_PATH}/values-${params.ENVIRONMENT}.yaml \
+                                --set auth.image=${AUTH_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                --set streaming.image=${STREAMING_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                --set admin.image=${ADMIN_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                --set chat.image=${CHAT_SERVICE_IMAGE}:${IMAGE_TAG} \
+                                --set frontend.image=${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                                --wait
+                        else
+                            echo "Helm chart not found at ${HELM_CHART_PATH}"
+                            echo "Using kubectl rollout instead..."
+                            kubectl rollout restart deployment -n ${KUBE_NAMESPACE}
+                        fi
+                        
+                        # Verify deployment
+                        kubectl get pods -n ${KUBE_NAMESPACE}
+                    '''
+                }
+            }
+        }
+
+        stage('Health Check') {
+            when {
+                expression {
+                    return params.DEPLOY_TO_EKS == true
+                }
+            }
+            steps {
+                script {
+                    echo "=== Running Health Checks ==="
+                    sh '''
+                        # Wait for services to be ready
+                        kubectl wait --for=condition=ready pod \
+                            -l app=auth \
+                            -n ${KUBE_NAMESPACE} \
+                            --timeout=300s || true
+                        
+                        # Get service endpoints
+                        echo "Service Endpoints:"
+                        kubectl get svc -n ${KUBE_NAMESPACE}
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "=== Build Summary ==="
+                echo "Build: ${BUILD_NUMBER}"
+                echo "Status: ${currentBuild.result}"
+                echo "Duration: ${currentBuild.durationString}"
+            }
+        }
+
+        success {
+            script {
+                echo "✓ Pipeline completed successfully"
+                // Send success notification
+                // sh './scripts/notify.sh SUCCESS'
+            }
+        }
+
+        failure {
+            script {
+                echo "✗ Pipeline failed"
+                // Send failure notification
+                // sh './scripts/notify.sh FAILURE'
+            }
+        }
+
+        unstable {
+            script {
+                echo "⚠ Pipeline unstable"
+            }
+        }
+
+        cleanup {
+            script {
+                // Clean up docker images to save space
+                sh '''
+                    docker image prune -f --filter "until=72h" || true
+                '''
+            }
+        }
+    }
+}
