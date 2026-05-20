@@ -21,9 +21,9 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/arunsdpr-wq/StreamingApp.git'
+                git branch: 'main', url: 'https://github.com/arunsdpr-wq/StreamingApp.git'
+                }
             }
-        }
 
         stage('Build Docker Images') {
             steps {
