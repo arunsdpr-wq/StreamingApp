@@ -37,6 +37,8 @@ pipeline {
                 sh 'docker build -t streaming-service ./backend/streamingService'
 
                 sh 'docker build -t streaming-frontend ./frontend'
+
+                sh 'docker images built successfully'
             }
         }
 
@@ -74,6 +76,8 @@ pipeline {
                 docker tag streaming-frontend:latest $FRONTEND_REPO:latest
                 docker push $FRONTEND_REPO:latest
                 '''
+
+                sh 'docker images pushed successfully'
             }
         }
     }
