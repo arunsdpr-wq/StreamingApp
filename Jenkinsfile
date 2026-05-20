@@ -38,7 +38,7 @@ pipeline {
 
                 sh 'docker build -t streaming-frontend ./frontend'
 
-                sh 'docker images built successfully'
+                echo "docker images built successfully"
             }
         }
 
@@ -77,7 +77,7 @@ pipeline {
                 docker push $FRONTEND_REPO:latest
                 '''
 
-                sh 'docker images pushed successfully'
+                echo "docker images pushed successfully"
             }
         }
     }
