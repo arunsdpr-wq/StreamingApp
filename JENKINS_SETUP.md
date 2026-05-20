@@ -34,12 +34,10 @@
 aws iam create-user --user-name jenkins-ci
 
 # Attach ECR permissions
-aws iam attach-user-policy --user-name jenkins-ci \
-  --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+aws iam attach-user-policy --user-name arunkumar.v --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
 
 # Attach EKS permissions
-aws iam attach-user-policy --user-name jenkins-ci \
-  --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+aws iam attach-user-policy --user-name arunkumar.v --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
 
 # Generate access keys
 aws iam create-access-key --user-name jenkins-ci
